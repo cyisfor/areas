@@ -98,22 +98,22 @@ minetest.register_chatcommand("add_owner", {
 				" EndPos = "  ..pos2.x..","..pos2.y..","..pos2.z)
 
 		-- Check if this new area is inside an area owned by the player
-		pid = tonumber(pid)
-		if (not areas:isAreaOwner(pid, name)) or
-		   (not areas:isSubarea(pos1, pos2, pid)) then
-			return false, "You can't protect that area."
+        local area = areas.areas[pid]
+		if not area or
+            (not areas:isAreaOwner(area, name)) or
+		    (not areas:canBeSubarea(pos1, pos2, area)) then
+			  return false, "You can't protect that area."
 		end
 
 		local id = areas:add(ownerName, areaName, pos1, pos2, pid)
 		areas:save()
 
 		minetest.chat_send_player(ownerName,
-				"You have been granted control over area #"..
+				"You have been granted control over area "..
 				id..". Type /list_areas to show your areas.")
 		return true, "Area protected. ID: "..id
 	end
 })
-
 
 minetest.register_chatcommand("rename_area", {
 	params = "<ID> <newName>",
@@ -124,16 +124,16 @@ minetest.register_chatcommand("rename_area", {
 			return false, "Invalid usage, see /help rename_area."
 		end
 
-		id = tonumber(id)
-		if not id then
+		local area = areas.areas[id]
+		if not area then
 			return false, "That area doesn't exist."
 		end
 
-		if not areas:isAreaOwner(id, name) then
+		if not areas:isAreaOwner(area, name) then
 			return true, "You don't own that area."
 		end
 
-		areas.areas[id].name = newName
+		area.name = newName
 		areas:save()
 		return true, "Area renamed."
 	end
@@ -150,7 +150,7 @@ minetest.register_chatcommand("find_areas", {
 
 		-- Check expression for validity
 		local function testRegExp()
-			("Test [1]: Player (0,0,0) (0,0,0)"):find(param)
+			("Test [player:name]: Player (0,0,0) (0,0,0)"):find(param)
 		end
 		if not pcall(testRegExp) then
 			return false, "Invalid regular expression."
@@ -158,9 +158,11 @@ minetest.register_chatcommand("find_areas", {
 
 		local matches = {}
 		for id, area in pairs(areas.areas) do
-			if areas:isAreaOwner(id, name) and
-			   areas:toString(id):find(param) then
-				table.insert(matches, areas:toString(id))
+			if areas:isAreaOwner(area, name) then
+                local s = areas:toString(area)
+                if s:find(param) then
+    				table.insert(matches, s)
+                end
 			end
 		end
 		if #matches > 1 then
@@ -177,10 +179,17 @@ minetest.register_chatcommand("list_areas", {
 	func = function(name, param)
 		local admin = minetest.check_player_privs(name, {areas=true})
 		local areaStrings = {}
-		for id, area in pairs(areas.areas) do
-			if admin or areas:isAreaOwner(id, name) then
-				table.insert(areaStrings, areas:toString(id))
+        if admin then
+    		for id, area in pairs(areas.areas) do
+			    table.insert(areaStrings, areas:toString(area))
 			end
+        else
+            local owned = areas.owned[name]
+            if owned then
+                for _, area in ipairs(owned) do
+                    table.insert(areaStrings, areas:toString(area))
+                end
+            end
 		end
 		if #areaStrings == 0 then
 			return true, "No visible areas."
@@ -189,23 +198,22 @@ minetest.register_chatcommand("list_areas", {
 	end
 })
 
-
 minetest.register_chatcommand("recursive_remove_areas", {
 	params = "<id>",
 	description = "Recursively remove areas using an id",
-	func = function(name, param)
-		local id = tonumber(param)
-		if not id then
+	func = function(name, id)
+		local area = areas.areas[id]
+		if not area then
 			return false, "Invalid usage, see"
 					.." /help recursive_remove_areas"
 		end
 
-		if not areas:isAreaOwner(id, name) then
+		if not areas:isAreaOwner(area, name) then
 			return false, "Area "..id.." does not exist or is"
 					.." not owned by you."
 		end
 
-		areas:remove(id, true)
+		areas:remove(id, area, true)
 		areas:save()
 		return true, "Removed area "..id.." and it's sub areas."
 	end
@@ -214,19 +222,19 @@ minetest.register_chatcommand("recursive_remove_areas", {
 
 minetest.register_chatcommand("remove_area", {
 	params = "<id>",
-	description = "Remove an area using an id",
-	func = function(name, param)
-		local id = tonumber(param)
-		if not id then
+	description = "Remove an area using an id (nonrecursively)",
+	func = function(name, id)
+		local area = areas.areas[id]
+		if not area then
 			return false, "Invalid usage, see /help remove_area"
 		end
 
-		if not areas:isAreaOwner(id, name) then
+		if not areas:isAreaOwner(area, name) then
 			return false, "Area "..id.." does not exist or"
 					.." is not owned by you."
 		end
 
-		areas:remove(id)
+		areas:remove(id,area,false)
 		areas:save()
 		return true, "Removed area "..id
 	end
@@ -235,11 +243,12 @@ minetest.register_chatcommand("remove_area", {
 
 minetest.register_chatcommand("change_owner", {
 	params = "<ID> <NewOwner>",
-	description = "Change the owner of an area using it's ID",
+	description = "Change the owner of an area using its ID",
 	func = function(name, param)
-		local id, newOwner = param:match("^(%d+)%s(%S+)$")
+		local id, newOwner = param:match("^(%S+)%s(%S+)$")
 
-		if not id then
+        local area = areas.areas[id]
+		if not area then
 			return false, "Invalid usage, see"
 					.." /help change_owner."
 		end
@@ -249,16 +258,15 @@ minetest.register_chatcommand("change_owner", {
 					.."\" does not exist."
 		end
 
-		id = tonumber(id)
-		if not areas:isAreaOwner(id, name) then
+		if not areas:isAreaOwner(area, name) then
 			return false, "Area "..id.." does not exist"
 					.." or is not owned by you."
 		end
-		areas.areas[id].owner = newOwner
+		area.owner = newOwner
 		areas:save()
 		minetest.chat_send_player(newOwner,
 			("%s has given you control over the area %q (ID %d).")
-				:format(name, areas[id].name, id))
+				:format(name, area.name, id))
 		return true, "Owner changed."
 	end
 })
@@ -267,20 +275,19 @@ minetest.register_chatcommand("change_owner", {
 minetest.register_chatcommand("area_open", {
 	params = "<ID>",
 	description = "Toggle an area open (anyone can interact) or closed",
-	func = function(name, param)
-		local id = tonumber(param)
-
-		if not id then
+	func = function(name, id)
+        local area = areas.areas[id]
+		if not area then
 			return false, "Invalid usage, see /help area_open."
 		end
 
-		if not areas:isAreaOwner(id, name) then
+		if not areas:isAreaOwner(area, name) then
 			return false, "Area "..id.." does not exist"
 					.." or is not owned by you."
 		end
-		local open = not areas.areas[id].open
+		local open = not area.open
 		-- Save false as nil to avoid inflating the DB.
-		areas.areas[id].open = open or nil
+		area.open = open or nil
 		areas:save()
 		return true, ("Area %s."):format(open and "opened" or "closed")
 	end

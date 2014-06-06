@@ -13,7 +13,6 @@ dofile(areas.modpath.."/internal.lua")
 dofile(areas.modpath.."/chatcommands.lua")
 dofile(areas.modpath.."/pos.lua")
 dofile(areas.modpath.."/interact.lua")
-dofile(areas.modpath.."/legacy.lua")
 dofile(areas.modpath.."/hud.lua")
 
 areas:load()

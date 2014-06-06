@@ -14,17 +14,14 @@ areas.pos2 = {}
 minetest.register_chatcommand("select_area", {
 	params = "<ID>",
 	description = "Select a area by id.",
-	func = function(name, param)
-		local id = tonumber(param)
-		if not id then
-			return false, "Invalid usage, see /help select_area."
-		end
-		if not areas.areas[id] then
+	func = function(name, id)
+        local area = areas.areas[id]
+		if not area then
 			return false, "The area "..id.." does not exist."
 		end
 
-		areas:setPos1(name, areas.areas[id].pos1)
-		areas:setPos2(name, areas.areas[id].pos2)
+		areas:setPos1(name, area.pos1)
+		areas:setPos2(name, area.pos2)
 		return true, "Area "..id.." selected."
 	end,
 })

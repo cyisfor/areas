@@ -23,12 +23,6 @@ areas.self_protection_max_size =
 areas.self_protection_max_areas =
 	tonumber(minetest.setting_get("areas.self_protection_max_areas")) or 3
 
--- Register compatability functions for node_ownership.
--- legacy_table (owner_defs) compatibility is untested
--- and can not be used if security_safe_mod_api is on.
-areas.legacy_table =
-	setting_getbool_default("areas.legacy_table", false)
-
 -- Prevent players from punching nodes in a protected area.
 -- Usefull for things like delayers, usualy annoying and
 -- prevents usage of things like buttons.

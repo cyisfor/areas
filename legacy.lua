@@ -34,10 +34,9 @@ minetest.register_chatcommand("legacy_load_areas", {
 			area.pos1, area.pos2 = areas:sortPos(area.pos1, area.pos2)
 
 			-- Add name
-			area.name = "unnamed"
-
-			-- Remove ID
-			area.id = nil
+			area.name = "unnamed "..k
+		
+			area.id = name .. ':unnamed_'..k
 		end
 		minetest.chat_send_player(name, "Table format updated.")
 
@@ -77,7 +76,7 @@ end
 
 -- Returns the name of the first player that owns an area
 function areas.getNodeOwnerName(pos)
-	for id, area in pairs(areas:getAreasAtPos(pos)) do
+	for _, area in ipairs(areas:getAreasAtPos(pos)) do
 		return area.owner
 	end
 	return false
@@ -88,7 +87,7 @@ function areas.isNodeOwner(pos, name)
 	if minetest.check_player_privs(name, {areas=true}) then
 		return true
 	end
-	for id, area in pairs(areas:getAreasAtPos(pos)) do
+	for _, area in ipairs(areas:getAreasAtPos(pos)) do
 		if name == area.owner then
 			return true
 		end
@@ -98,7 +97,7 @@ end
 
 -- Checks if an area has an owner
 function areas.hasOwner(pos)
-	for id, area in pairs(areas:getAreasAtPos(pos)) do
+	for _, area in ipairs(areas:getAreasAtPos(pos)) do
 		return true
 	end
 	return false

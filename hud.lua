@@ -8,14 +8,14 @@ minetest.register_globalstep(function(dtime)
 		local pos = vector.round(player:getpos())
 		local areaString = ""
 		local first = true
-		for id, area in pairs(areas:getAreasAtPos(pos)) do
+		for _, area in ipairs(areas:getAreasAtPos(pos)) do
 			if not first then
 				areaString = areaString..", "
 			else
 				first = false
 			end
-			areaString = areaString .. ("%s [%u] (%s%s)")
-					:format(area.name, id, area.owner,
+			areaString = areaString .. ("%s (%s%s)")
+					:format(area.name, area.owner,
 					area.open and ":open" or "")
 		end
 		if not areas.hud[name] then
